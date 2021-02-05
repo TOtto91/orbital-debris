@@ -16,7 +16,6 @@ import os
 
 from typing import cast
 
-STARTING_ASTEROID_COUNT = 3
 SCALE = 0.5
 SHIP_SCALE = 1.0
 OFFSCREEN_SPACE = 0 # was 300
@@ -56,7 +55,7 @@ class ShipSprite(arcade.Sprite):
         self.max_speed = 4
         self.drag = 0.05
         self.respawning = 0
-        
+
         # New code to track state
         self.cur_texture = 0
         self.scale = SHIP_SCALE
@@ -180,11 +179,11 @@ class AsteroidSprite(arcade.Sprite):
             self.center_y = TOP_LIMIT
 
 
-class MyGame(arcade.Window):
+class GameView(arcade.View):
     """ Main application class. """
 
     def __init__(self):
-        super().__init__(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
+        super().__init__()
 
         # Set the working directory (where we expect to find files) to the same
         # directory this .py file is in. You can leave this out of your own
@@ -194,8 +193,9 @@ class MyGame(arcade.Window):
         os.chdir(file_path)
 
         self.frame_count = 0
-
         self.game_over = False
+        self.level = 1
+        self.starting_asteroid_count = 1
 
         # Sprite lists
         self.player_sprite_list = arcade.SpriteList()
@@ -220,6 +220,8 @@ class MyGame(arcade.Window):
 
         self.frame_count = 0
         self.game_over = False
+        self.level = 1
+        self.starting_asteroid_count = 1
 
         # Sprite lists
         self.player_sprite_list = arcade.SpriteList()
@@ -249,7 +251,31 @@ class MyGame(arcade.Window):
                       ":resources:images/space_shooter/meteorGrey_big2.png",
                       ":resources:images/space_shooter/meteorGrey_big3.png",
                       ":resources:images/space_shooter/meteorGrey_big4.png")
-        for i in range(STARTING_ASTEROID_COUNT):
+        for i in range(self.starting_asteroid_count):
+            image_no = random.randrange(4)
+            enemy_sprite = AsteroidSprite(image_list[image_no], SCALE)
+            enemy_sprite.guid = "Asteroid"
+
+            enemy_sprite.center_y = random.randrange(BOTTOM_LIMIT, TOP_LIMIT)
+            enemy_sprite.center_x = random.randrange(LEFT_LIMIT, RIGHT_LIMIT)
+
+            enemy_sprite.change_x = random.random() * 2 - 1
+            enemy_sprite.change_y = random.random() * 2 - 1
+
+            enemy_sprite.change_angle = (random.random() - 0.5) * 2
+            enemy_sprite.size = 4
+            self.asteroid_list.append(enemy_sprite)
+
+    def update_level(self):
+        """
+        Updates parameters for the next level
+        """
+        self.starting_asteroid_count += 1
+        image_list = (":resources:images/space_shooter/meteorGrey_big1.png",
+                      ":resources:images/space_shooter/meteorGrey_big2.png",
+                      ":resources:images/space_shooter/meteorGrey_big3.png",
+                      ":resources:images/space_shooter/meteorGrey_big4.png")
+        for i in range(self.starting_asteroid_count):
             image_no = random.randrange(4)
             enemy_sprite = AsteroidSprite(image_list[image_no], SCALE)
             enemy_sprite.guid = "Asteroid"
@@ -279,6 +305,9 @@ class MyGame(arcade.Window):
         self.player_sprite_list.draw()
 
         # Put the text on the screen.
+        output = f"Level: {self.level}"
+        arcade.draw_text(output, 10, 90, arcade.color.WHITE, 13)
+        
         output = f"Score: {self.score}"
         arcade.draw_text(output, 10, 70, arcade.color.WHITE, 13)
 
@@ -440,15 +469,40 @@ class MyGame(arcade.Window):
                         print("Crash")
                     else:
                         self.game_over = True
-                        print("Game over")
-                        arcade.start_render()
-                        arcade.draw.text('GAME OVER',SCREEN_WIDTH/2, SCREEN_HEIGHT/2, arcade.color.RED_ORANGE, 20, align='center')
-                        arcade.finish_render()
+                        view = GameOverView()
+                        self.window.show_view(view)
+
+            if len(self.asteroid_list) == 0:
+                self.level += 1
+                self.update_level()
+
+class GameOverView(arcade.View):
+    '''
+    Defines view that is displayed at the end of the game
+    '''
+    def on_show(self):
+        ''' Run once when we switch to this view'''
+        arcade.set_background_color(arcade.csscolor.BLACK)
+
+    def on_draw(self):
+        arcade.start_render()
+        arcade.draw_text("GAME OVER", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2,
+            arcade.color.YELLOW_ORANGE, font_size=50, bold = True, anchor_x="center")
+        arcade.draw_text("Click to Play Again", SCREEN_WIDTH / 2, SCREEN_HEIGHT / 2 - 75,
+            arcade.color.WHITE, font_size=20, anchor_x="center")       
+
+    def on_mouse_press(self, _x, _y, _button, _modifiers):
+        '''if user presses the mouse button, restart the game.'''
+        game_view = GameView()
+        game_view.start_new_game()
+        self.window.show_view(game_view)
 
 def main():
     """ Start the game """
-    window = MyGame()
-    window.start_new_game()
+    window = arcade.Window(SCREEN_WIDTH, SCREEN_HEIGHT, SCREEN_TITLE)
+    start_view = GameView()
+    window.show_view(start_view)
+    start_view.start_new_game()
     arcade.run()
 
 
